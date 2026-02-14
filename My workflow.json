@@ -1,0 +1,188 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {},
+            {}
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -512,
+        -48
+      ],
+      "id": "98b38c28-35c1-4015-a68b-6118627d9977",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://router.huggingface.co/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"meta-llama/Meta-Llama-3-8B-Instruct\",\n  \"response_format\": { \"type\": \"json_object\" },\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": {{ (\"You are a clinical trial auditor. Review the following summary for contradictions or missing info. Respond ONLY in JSON format with fields 'issues' and 'confidence'. Summary: \" + $json[\"Researcher Node - Draft Summary\"]).toJsonString() }}\n    }\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        64,
+        -48
+      ],
+      "id": "2886f157-5f55-4d32-8747-7eb42b4d39f9",
+      "name": "Challenger Node",
+      "retryOnFail": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "659Mha3mACohruzC",
+          "name": "Header Auth account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b32267b0-8166-4143-a893-3055f893868e",
+              "name": "llm_text",
+              "value": "Patient reported mild nausea and headache. No serious adverse events observed. Contraindications include pregnancy and severe liver disease.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -304,
+        -48
+      ],
+      "id": "782ea321-f8be-45f2-9424-2d8af363056c",
+      "name": "Source Text"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://router.huggingface.co/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "huggingFaceApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n\"model\": \"meta-llama/Meta-Llama-3-8B-Instruct\",\n\"messages\": [\n{\n\"role\": \"user\",\n\"content\": \"Here are the citations: page 12, page 45. Text: {{ $json.llm_text }}\"\n}\n]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -128,
+        -48
+      ],
+      "id": "711558bb-cbbb-4609-825f-c56269ce89ca",
+      "name": "Researcher",
+      "retryOnFail": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "OtOPDur2THfskpjs",
+          "name": "Header Auth account"
+        },
+        "huggingFaceApi": {
+          "id": "OjW1y7CAfGNijAmg",
+          "name": "HuggingFaceApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://router.huggingface.co/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"meta-llama/Meta-Llama-3-8B-Instruct\",\n  \"response_format\": { \"type\": \"json_object\" },\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": {{ (\"You are a senior clinical safety director. Research Summary: [\" + $('Researcher').item.json.choices[0].message.content + \"] Audit Findings: [\" + $json.choices[0].message.content + \"] Decide if the research summary is safe. Return ONLY JSON: { \\\"final_decision\\\": \\\"approved or rejected\\\", \\\"reason\\\": \\\"short explanation\\\", \\\"risk_level\\\": \\\"low medium or high\\\" }\").toJsonString() }}\n    }\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        272,
+        -48
+      ],
+      "id": "20391af9-e346-4ab2-939b-371b654ec220",
+      "name": "judge",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "659Mha3mACohruzC",
+          "name": "Header Auth account 2"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Source Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Source Text": {
+      "main": [
+        [
+          {
+            "node": "Researcher",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Researcher": {
+      "main": [
+        [
+          {
+            "node": "Challenger Node",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Challenger Node": {
+      "main": [
+        [
+          {
+            "node": "judge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "038c4c2c-3c0c-4a33-b560-fd9c7a981bf2",
+  "meta": {
+    "instanceId": "f800daafbde3826b5d761b5700ea9786a3e8c70303a4840cce8d883bac1e3f37"
+  },
+  "id": "qyjpAB3uftwoOTR1-k5GX",
+  "tags": []
+}
